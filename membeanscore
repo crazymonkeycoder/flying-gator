@@ -1,0 +1,117 @@
+// ==UserScript==
+// @name         Membean Answer Tracker
+// @namespace    http://tampermonkey.net/
+// @version      2.0
+// @description  Track correct and incorrect answers on Membean and provide manual adjustment buttons
+// @author       leoGator
+// @match        https://*.membean.com/*
+// @grant        none
+// ==/UserScript==
+
+(function () {
+    'use strict';
+
+    // Initialize counters
+    let correctCount = 0;
+    let incorrectCount = 0;
+
+    // Add a counter and buttons display to the page
+    const counterDisplay = document.createElement("div");
+    counterDisplay.style.position = "fixed";
+    counterDisplay.style.top = "10px";
+    counterDisplay.style.right = "10px";
+    counterDisplay.style.padding = "10px";
+    counterDisplay.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+    counterDisplay.style.color = "white";
+    counterDisplay.style.fontSize = "16px";
+    counterDisplay.style.zIndex = "1000";
+    counterDisplay.style.borderRadius = "5px";
+    counterDisplay.innerHTML = `
+        <p>Correct: <span id="correct-counter">0</span></p>
+        <button id="correct-add">+ Correct</button>
+        <button id="correct-subtract">- Correct</button>
+        <p>Incorrect: <span id="incorrect-counter">0</span></p>
+        <button id="incorrect-add">+ Incorrect</button>
+        <button id="incorrect-subtract">- Incorrect</button>
+        <p>Ratio: <span id="ratio-counter">0</span></p>
+    `;
+    document.body.appendChild(counterDisplay);
+
+    const correctCounter = document.getElementById("correct-counter");
+    const incorrectCounter = document.getElementById("incorrect-counter");
+    const ratioCounter = document.getElementById("ratio-counter");
+
+    // Function to update the ratio
+    function updateRatio() {
+        const total = correctCount + incorrectCount;
+        ratioCounter.textContent = total > 0 ? (correctCount / total).toFixed(2) : "0";
+    }
+
+    // Function to handle the tracking of answers
+    function updateCounters(text) {
+        const isSpellingExercise = document.body.textContent.includes("Spell the word you saw");
+        if (isSpellingExercise) {
+            console.log("Skipping spelling exercise feedback.");
+            return;
+        }
+
+        if (text.includes("Correct!")) {
+            correctCount++;
+            correctCounter.textContent = correctCount;
+            console.log("Correct answer detected!");
+        } else if (text.includes("Incorrect!")) {
+            incorrectCount++;
+            incorrectCounter.textContent = incorrectCount;
+            console.log("Incorrect answer detected!");
+        }
+
+        // Update the ratio
+        updateRatio();
+    }
+
+    // Manual adjustment button functionality
+    document.getElementById("correct-add").addEventListener("click", () => {
+        correctCount++;
+        correctCounter.textContent = correctCount;
+        updateRatio();
+    });
+
+    document.getElementById("correct-subtract").addEventListener("click", () => {
+        if (correctCount > 0) correctCount--;
+        correctCounter.textContent = correctCount;
+        updateRatio();
+    });
+
+    document.getElementById("incorrect-add").addEventListener("click", () => {
+        incorrectCount++;
+        incorrectCounter.textContent = incorrectCount;
+        updateRatio();
+    });
+
+    document.getElementById("incorrect-subtract").addEventListener("click", () => {
+        if (incorrectCount > 0) incorrectCount--;
+        incorrectCounter.textContent = incorrectCount;
+        updateRatio();
+    });
+
+    // Observe DOM changes
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === 1) {
+                        const text = node.textContent || "";
+                        updateCounters(text);
+                    }
+                });
+            }
+        });
+    });
+
+    // Target the parent node of the answer status area
+    const targetNode = document.body;
+    const config = { childList: true, subtree: true }; // Observe all child nodes
+    observer.observe(targetNode, config);
+
+    console.log("Membean Answer Tracker initialized.");
+})();
